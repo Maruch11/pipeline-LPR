@@ -25,30 +25,6 @@ class PipelineStage:
             "Las clases derivadas deben implementar el metodo process()."
             ) 
 
-class Preprocessor(PipelineStage):
-    """Mejora la imagen"""
-
-    def process(self, image):
-        """Método publico orquestador"""
-        image = self._grayscale(image)
-        image = self._resize(image)
-        image = self._enhance_contrast(image)
-        return image
-    
-    def _grayscale(self, image):
-        """Método interno, nomenclatura consistente con PEP 8, 
-        convierte la imagen en escala de grises."""
-        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    def _resize(self, image):    
-        image = cv2.resize(image, (640, 480))
-        return image
-
-    def _enhance_contrast(self, image):
-        clahe = cv2.createCLAHE(clipLimit=5)
-        image = clahe.apply(image)
-        return image
-
 class PlateDetector(PipelineStage):
     """Localiza la placa y obtiene la región de interés (ROI)."""
     
@@ -60,6 +36,8 @@ class PlateDetector(PipelineStage):
 
         results = self._detect_plate(image)
         detection = self._select_detection(results)
+
+        print("Detection: ", detection)
 
         if detection is None:
             return None
@@ -78,14 +56,21 @@ class PlateDetector(PipelineStage):
         """Selecciona la mejor detección.
         Devuelve una única detección bounding box o None.
         """
+        print("Cantidad de Results:", len(results))
+
         if not results:
+            print("Sin results")
             return None
         
         image_result = results[0]
 
+        print("Cantidad de boxes: ", len(image_result.boxes))
+
         if len(image_result.boxes) == 0:
+            print("Sin boxes")
             return None
         
+        print("Box seleccionada")
         return image_result.boxes[0]
 
     def _crop_roi(self, image, detection):
@@ -105,9 +90,31 @@ class PlateDetector(PipelineStage):
     
 class ROINormalizer(PipelineStage):
     """Prepara la ROI para OCR."""
+    ROI_WIDTH = 640
+    ROI_HEIGHT = 480
+    CLAHE_CLIP_LIMIT = 5
 
     def process(self, image):
-        pass
+        """Normaliza la ROI para mejorar el reconocimiento OCR."""
+        image = self._resize(image)
+        image = self._grayscale(image)
+        image = self._enhance_contrast(image)
+        return image
+        
+    def _resize(self, image):
+        """Redimensiona la ROI a un tamaño fijo."""
+        image = cv2.resize(image, (self.ROI_WIDTH, self.ROI_HEIGHT))
+        return image
+
+    def _grayscale(self, image):
+        """Convierte la ROI a escala de grises."""
+        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    def _enhance_contrast(self, image):
+        """Mejora el contraste mediante CLAHE."""
+        clahe = cv2.createCLAHE(clipLimit=self.CLAHE_CLIP_LIMIT)
+        image = clahe.apply(image)
+        return image
 
 class TesseractOCR(PipelineStage):
     """Reconoce el texto."""

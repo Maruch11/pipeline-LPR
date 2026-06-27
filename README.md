@@ -4,9 +4,10 @@ Estado: PROYECTO EN CONSTRUCCION
 
 El pipeline tiene etapas claramente separadas:
 
-- Preprocesamiento
 - Detección
+- Normalización de la ROI
 - OCR
+- Postprocesamiento
 - Evaluación
 
 Cada una recibe una entrada y produce una salida.
@@ -14,7 +15,6 @@ Cada una recibe una entrada y produce una salida.
 ```
 LPRPipeline
 |
-├── Preprocessor
 ├── PlateDetector
 ├── ROINormalizer
 ├── TesseractOCR
@@ -24,18 +24,12 @@ LPRPipeline
 
 ## Flujo
 ```
-Imagen
+Imagen original
    ↓
-   
-Preprocesamiento
+    
+PlateDetector (YOLO)
    ↓
-   
-Imagen mejorada
-   ↓
-
-Detector de patente
-   ↓
-   
+ 
 Recorte (ROI)
    ↓
    
@@ -119,7 +113,6 @@ LPRPipeline
 |
 ├── PipelineStage (base)
 |   |
-|   ├── Preprocessor
 |   ├── PlateDetector
 |   ├── ROINormalizer
 |   ├── TesseractOCR
@@ -131,7 +124,6 @@ Responsabilidades:
 
 - LPRPipeline: orquesta el flujo.
 - PipelineStage: define el contrato process().
-- Preprocessor: mejora la imagen.
 - PlateDetector: localiza la placa y obtiene la ROI.
 - ROINormalizer: prepara la ROI para OCR.
 - TesseractOCR: reconoce el texto.
@@ -163,7 +155,6 @@ De lo general a lo particular:
 
 ### CLases hijas
 
-- `Preprocessor`
 - `PlateDetector`
 - `ROINormalizer`
 - `TesseractOCR`
@@ -218,8 +209,6 @@ Solo mantiene el orden:
 ```
 image
    ↓
-Preprocessor
-   ↓
 PlateDetector
    ↓
 ROINormalizer
@@ -248,7 +237,6 @@ Conceptualmente hace:
 ```
 LPRPipeline
     |
-    ├── Preprocessor
     ├── PlateDetector
     ├── ROINormalizer
     ├── TesseractOCR
@@ -271,7 +259,6 @@ No debe conocer nada de OCR, OpenCV ni métricas.
 
 A partir de ella heredan*:
 
-- `Preprocessor`
 - `PlateDetector`
 - `ROINormalizer`
 - `TesseractOCR`
@@ -285,45 +272,6 @@ A partir de ella heredan*:
 
 Todas las clases hijas lo implementan.
 
-#### `Preprocessor`
-
-Responsabilidad: 
-
-Mejorar la imagen para facilitar la detección.
-
-Recibe:
-
-imagen
-
-Devuelve:
-
-imagen_preprocesada
-
-```
-Preprocessor
-|
-├── cargar imagen (si corresponde)
-├── convertir a escala de grises, grayscale
-├── redimensionar, resize
-└── mejorar la imagen, CLAHE
-```
-
-No detecta placas, no recorta, no hace OCR. Solo prepara la imagen con escala de grises, redimensionamiento y mejora. 
-
-Contiene un método público (process) y varios métodos privados que representan cada paso del algoritmo.
-
-```
-imagen
-   ↓
-grayscale, _grayscale
-   ↓
-resize, _resize
-   ↓
-mejora, _enhance_contrast con CLAHE
-   ↓
-imagen_preprocesada
-```
-
 #### `PlateDetector`
 
 Responsabilidad: 
@@ -332,11 +280,15 @@ Localizar la patente.
 
 Recibe:
 
-imagen_preprocesada
+imagen
 
 Devuelve:
 
-ROI + información de la detección
+ROI
+
+Internamente utiliza YOLO para seleccionar la mejor detección y recortar la región de interés (ROI).
+
+La primera versión del proyecto utilizaba un detector basado en Canny y contornos. Debido a la elevada cantidad de falsos positivos producidos por el filtrado basado en área y relación de aspecto, dicha implementación fue reemplazada por un detector basado en YOLOv8, que proporciona una localización más robusta de la placa mediante un modelo de aprendizaje profundo.
 
 ### Modelo de detección de placas
 
@@ -400,12 +352,14 @@ Devuelve:
 ROI normalizada
 
 Aquí se relaizan las operaciones de redimensionado, escala de grises, binarización y mejora de contraste. No reconoce texto; solo optimiza la imagen para la siguiente etapa.
-
-*Nota*: el `Preprocessor` ya realiza algunas de estas operaciones sobre la imagen completa, `ROINormalizer` las repite sobre la ROI recortada. No es redundancia, sino que cada clase actúa sobre un objeto distinto ya que los requisitos para detectar una placa y para reconocer sus caracteres no son necesariamente los mismos.
-
-- `Preprocessor` → mejora la imagen completa para facilitar la detección de la placa.
-
-- `ROINormalizer` → vuelve a acondicionar únicamente la ROI de la placa para maximizar la precisión del OCR.
+```
+ROINormalizer
+│
+├── process()
+├── _resize()
+├── _grayscale()
+└── _enhance_contrast()
+```
 
 #### `TesseractOCR`
 
@@ -474,7 +428,6 @@ main.py
 - Definición de las clases.
 - Clase base del pipeline.
 - Dataset.
-- Preprocesamiento.
 - Detector.
 - Normalización.
 - OCR.
@@ -511,11 +464,14 @@ El flujo queda así:
 ```
 image
    ↓
-   
-OpenCV
-(preprocesamiento)
+
+PlateDetector (YOLO)
    ↓
-   
+
+ROINormalizer
+(OpenCV)
+   ↓
+
 pytesseract
 (interfaz Python)
    ↓
