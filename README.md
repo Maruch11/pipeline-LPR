@@ -338,6 +338,13 @@ Devuelve:
 
 ROI + información de la detección
 
+Atributos de clase:
+
+- MIN_AREA
+- MAX_AREA
+- MIN_ASPECT_RATIO
+- MAX_ASPECT_RATIO
+
 ```
 imagen preprocesada
         ↓
@@ -355,6 +362,7 @@ selección de la mejor ROI, _select_candidate()
 ```
 
 Solo detecta y extrae la región de interés. No hace OCR ni modifica la ROI. 
+
 
 Método|Entrada|Salida|TDA
 ---|---|---|---
