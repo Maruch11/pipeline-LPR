@@ -338,38 +338,52 @@ Devuelve:
 
 ROI + información de la detección
 
-Atributos de clase:
+### Modelo de detección de placas
 
-- MIN_AREA
-- MAX_AREA
-- MIN_ASPECT_RATIO
-- MAX_ASPECT_RATIO
+La detección de placas se implementa mediante un modelo **YOLOv8** preentrenado, sin realizar entrenamiento adicional ni *fine-tuning*, utilizando la biblioteca **Ultralytics**.
 
-```
-imagen preprocesada
-        ↓
-  
-detección de contornos , _find_contours()
-        ↓
-        
-filtrado de candidatos, _filter_candidates()
-        ↓
-        
-selección de la mejor ROI, _select_candidate()
-        ↓
-        
-      ROI de la placa, _crop_roi
+##### Instalación
+
+Con el entorno virtual activado, instalar la dependencia:
+
+```bash
+pip install ultralytics
 ```
 
-Solo detecta y extrae la región de interés. No hace OCR ni modifica la ROI. 
+#### Descarga del modelo
 
+Se utilizó el modelo **YOLOv8 | Plate Detection Model & Finetuned weights**, disponible en Kaggle.
 
-Método|Entrada|Salida|TDA
----|---|---|---
-_find_contours()|	Imagen preprocesada|	Lista de contornos|list[numpy.ndarray]
-_filter_candidates()|	Lista de contornos|	Lista de candidatos con forma compatible con una placa|list[numpy.ndarray]
-_select_candidate()|	Candidatos|	Contorno elegido o None|numpy.ndarray o None
-_crop_roi()|	Imagen + contorno|	Imagen recortada (ROI)|numpy.ndarray o None
+1. Acceder al dataset en Kaggle.
+2. Descargar el archivo comprimido.
+3. Extraer el archivo `best.pt`.
+
+#### Integración en el proyecto
+
+1. Crear el directorio `models/` en la raíz del proyecto.
+2. Copiar `best.pt` dentro de dicho directorio.
+3. Renombrar el archivo a `plate_detector.pt`.
+
+```text
+pipeline-LPR/
+├── models/
+│   └── plate_detector.pt
+.
+.
+.
+```
+
+El modelo se carga al instanciar la clase `PlateDetector` mediante la biblioteca Ultralytics:
+
+```python
+from ultralytics import YOLO
+
+self.model = YOLO("models/plate_detector.pt")
+```
+
+Durante la ejecución, YOLO realiza la inferencia sobre la imagen de entrada y devuelve las detecciones de placas con sus correspondientes coordenadas (*bounding box*), puntaje de confianza y clase detectada.
+
+---
 
 #### `ROINormalizer`
 

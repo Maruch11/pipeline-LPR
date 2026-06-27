@@ -25,6 +25,7 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+test_yolo.py
 
 # Build artifacts
 build/
@@ -41,3 +42,6 @@ data/
 
 # Docs
 backlog.md
+
+# MOdelos
+models/

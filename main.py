@@ -7,18 +7,18 @@ from pipeline import Preprocessor, PlateDetector
 
 pre = Preprocessor()
 image = cv2.imread("imgs/originales/001.png")
-resultado = pre.process(image)
+preprocessed_image = pre.process(image)
 
 cv2.imshow("Original", image)
-cv2.imshow("Preprocesada", resultado)
-cv2.imwrite("imgs/preprocesadas/001.png", resultado)
+cv2.imshow("Preprocesada", preprocessed_image)
+cv2.imwrite("imgs/preprocesadas/001.png", preprocessed_image)
 cv2.waitKey(0) # Espera una tecla
 cv2.destroyAllWindows() # Cierra las ventanas
 
 # Prueba `PlateDetector`
 
 detector = PlateDetector()
-roi = detector.process(resultado)
+roi = detector.process(preprocessed_image)
 
 if roi is not None:
     print("ROI:", roi.shape)
@@ -31,4 +31,3 @@ if roi is not None:
 else:
     print("No se detectó ninguna placa.")
 
-print("ROI:", roi.shape)
