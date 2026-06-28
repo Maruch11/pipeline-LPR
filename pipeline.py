@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import pytesseract
+import easyocr
 
 from ultralytics import YOLO
 
@@ -55,7 +56,7 @@ class PlateDetector(PipelineStage):
         results = self._detect_plate(image)
         detection = self._select_detection(results)
 
-        print("Detection (archivo pipeline.py): ", detection)
+        # print("Detection (archivo pipeline.py): ", detection)
 
         if detection is None:
             return None
@@ -74,7 +75,7 @@ class PlateDetector(PipelineStage):
         """Selecciona la mejor detección.
         Devuelve una única detección bounding box o None.
         """
-        print("Cantidad de Results (archivo pipeline.py): ", len(results))
+        # print("Cantidad de Results (archivo pipeline.py): ", len(results))
 
         if not results:
             print("Sin results (archivo pipeline.py)")
@@ -82,13 +83,13 @@ class PlateDetector(PipelineStage):
         
         image_result = results[0]
 
-        print("Cantidad de boxes (archivo pipeline.py): ", len(image_result.boxes))
+        # print("Cantidad de boxes (archivo pipeline.py): ", len(image_result.boxes))
 
         if len(image_result.boxes) == 0:
             print("Sin boxes (archivo pipeline.py)")
             return None
         
-        print("Box seleccionada (archivo pipeline.py)")
+        # print("Box seleccionada (archivo pipeline.py)")
         return image_result.boxes[0]
 
     def _crop_roi(self, image, detection):
@@ -125,9 +126,13 @@ class PlateDetector(PipelineStage):
 
         roi = image[y1:y2, x1:x2]
 
+        # print(
+        #     f"ROI con padding: ({x2 - x1}x{y2 - y1})"
+        #     f"(+{padding_x}px, +{padding_y}px)"
+        # )
         print(
-            f"ROI con padding: ({x2 - x1}x{y2 - y1})"
-            f"(+{padding_x}px, +{padding_y}px)"
+            f"ROI detectada: {roi.shape[:2]} "
+            f"(padding: {padding_x}px x {padding_y}px)"
         )
         return roi
     
@@ -151,7 +156,7 @@ class ROINormalizer(PipelineStage):
         contours = self._find_contours(threshold)
         candidates = self._filter_candidates(contours)
 
-        print(f"Candidatos encontrados (archivo pipeline.py): {len(candidates)}")
+        # print(f"Candidatos encontrados (archivo pipeline.py): {len(candidates)}")
 
         candidate = self._select_candidate(candidates)
 
@@ -173,9 +178,15 @@ class ROINormalizer(PipelineStage):
                         interpolation=cv2.INTER_CUBIC,
                     )
         
-        print(f"Resize (archvio pipeline.py): {width}x{height} -> {self.TARGET_WIDTH}x{new_height}")
-        print(f"ROI original (archvio pipeline.py): ({height}, {width})")
-        print(f"ROI redimensionada (archvio pipeline.py): {image.shape[:2]}")
+        # print(f"Resize (archvio pipeline.py): {width}x{height} -> {self.TARGET_WIDTH}x{new_height}")
+        # print(f"ROI original (archvio pipeline.py): ({height}, {width})")
+        # print(f"ROI redimensionada (archvio pipeline.py): {image.shape[:2]}")
+        print(
+            f"ROI redimensionada: "
+            f"{width}x{height} -> "
+            f"{self.TARGET_WIDTH}x{new_height}"
+        )
+
         return image
 
     def _grayscale(self, image):
@@ -226,10 +237,13 @@ class ROINormalizer(PipelineStage):
 
             aspect_ratio = w / h
 
-            print("archivo pipeline.py antes del for de _filter_candidates:")
-            print(
-                f"w={w:3d} h={h:3d} ratio={aspect_ratio:.2f}"
-            )
+            DEBUG = False
+
+            if DEBUG:
+                print("archivo pipeline.py antes del for de _filter_candidates:")
+                print(
+                    f"w={w:3d} h={h:3d} ratio={aspect_ratio:.2f}"
+                )
 
             if (
                 np.isclose(
@@ -299,9 +313,51 @@ class TesseractOCR(PipelineStage):
             lang='eng'
         )
 
-        print("(archivo pipeline.py)")
-        print(repr(text))
+        print(f"TesseractOCR: {repr(text)}")
         return text
+
+class EasyOCR(PipelineStage):
+    """Reconoce el texto de la patente mediante EasyOCR."""
+
+    def __init__(self, languages: list[str] | None = None):
+        """
+        Inicializa el lector de EasyOCR.
+
+        Args:
+            languages: Lista de idiomas utilizados por el OCR.
+                       Por defecto se utiliza inglés.
+        """
+        if languages is None:
+            languages = ["en"]
+
+        self._reader = easyocr.Reader(languages, gpu=False)
+
+    def process(self, roi: np.ndarray) -> str:
+        """
+        Reconoce el texto presente en la ROI.
+
+        Args:
+            roi: Imagen de la patente normalizada.
+
+        Returns:
+            Texto reconocido.
+        """
+        results = self._reader.readtext(roi, detail=0)
+        print(f"EasyOCR: {results}")
+        
+        # for bbox, text, confidence in results:
+        #     print(
+        #         f"{text:>4}  "
+        #         f"conf={confidence:.3f}  "
+        #         f"bbox={bbox}"
+        #     )
+
+        # return ""
+    
+        if not results:
+            return ""
+
+        return "".join(results).replace(" ", "").upper()
 
 class PostProcessor(PipelineStage):
     """Corrige, valida y calcula el score final."""

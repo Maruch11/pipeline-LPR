@@ -3,3 +3,5 @@ numpy
 pytesseract
 ultralytics
 pytesseract
+torchvision
+easyocr

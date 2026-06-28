@@ -1,12 +1,15 @@
 """Punto de entrada de la aplicación. Coordina la ejecución."""
 import cv2
 
+from pathlib import Path
+
 from pipeline import (
-    LPRPipeline,
+    # LPRPipeline,
     PlateDetector,
     ROINormalizer,
-    TesseractOCR,
-    PostProcessor
+    # TesseractOCR,
+    EasyOCR,
+    # PostProcessor
 )
 
 # pipeline = LPRPipeline(
@@ -18,55 +21,104 @@ from pipeline import (
 #     ]
 # )
 
-IMAGE_NAME = "001"
 
-ROI_PATH = f"imgs/roi/{IMAGE_NAME}_padding10.png"
-NORMALIZED_PATH = f"imgs/roi_normalizadas/{IMAGE_NAME}_padding10.png"
-DEBUG_PATH = f"imgs/debug/{IMAGE_NAME}_refined_roi_padding10.png"
+DATASET_PATH = Path("imgs/originales")
 
-image = cv2.imread(f"imgs/originales/{IMAGE_NAME}.png")
+# IMAGE_NAME = "001"
+# EXPERIMENT = "easyocr"
+
+# ROI_PATH = f"imgs/roi/{IMAGE_NAME}_{EXPERIMENT}.png"
+# NORMALIZED_PATH = f"imgs/roi_normalizadas/{IMAGE_NAME}_{EXPERIMENT}.png"
+# DEBUG_PATH = f"imgs/debug/{IMAGE_NAME}_{EXPERIMENT}.png"
+
+# image = cv2.imread(f"imgs/originales/{IMAGE_NAME}.png")
+
+# detector = PlateDetector()
+# normalizer = ROINormalizer()
+
+# # ocr = TesseractOCR()
+# ocr = EasyOCR()
+
+# # postprocessor = PostProcessor()
+
+# print("Etapa 1: PlateDetector")
+
+# roi = detector.process(image)
+
+# if roi is None:
+#     print("No se detectó placa")
+#     raise SystemExit(1)
+
+# # print(f"ROI detectada: {roi.shape}")
+
+
+# print("Etapa 2: ROINormalizer")
+
+# normalized_roi = normalizer.process(roi)
+
+# print(f"ROI normalizada: {normalized_roi.shape}")
+
+
+# print(f"Etapa 3: {ocr.__class__.__name__}")
+
+# text = ocr.process(normalized_roi)
+
+# print(f"Texto reconocido: {repr(text)}")
+
+# print("Guardando imagenes...")
+
+# roi_saved = cv2.imwrite(ROI_PATH, roi)
+# normalized_saved = cv2.imwrite(NORMALIZED_PATH, normalized_roi)
+# debug_saved = cv2.imwrite(DEBUG_PATH, normalized_roi)
+
+# print(f"ROI guardada: {roi_saved} -> {ROI_PATH}")
+# print(f"ROI normalizada guardada: {normalized_saved} -> {NORMALIZED_PATH}")
+# print(f"Debug guardada: {debug_saved} -> {DEBUG_PATH}")
+
+
+# # cv2.waitKey(0)
+# # cv2.destroyAllWindows()
 
 detector = PlateDetector()
 normalizer = ROINormalizer()
-ocr = TesseractOCR()
+ocr = EasyOCR()
 
-print("Etapa 1: PlateDetector")
+results = []
 
-roi = detector.process(image)
+for image_path in sorted(DATASET_PATH.glob("*.png"))[:10]:
 
-if roi is None:
-    print("No se detectó placa")
-    exit()
+    image_name = image_path.stem
+    
+    roi_path = f"imgs/roi/{image_name}_easyocr.png"
+    normalized_path = f"imgs/roi_normalizadas/{image_name}_easyocr.png"
+    debug_path = f"imgs/debug/{image_name}_easyocr.png"
 
-print(f"ROI detectada: {roi.shape}")
+    print("\n" + "=" * 60)
+    print(f"Imagen: {image_path.stem}")
+    print("=" * 60)
 
+    image = cv2.imread(str(image_path))
 
-print("Etapa 2: ROINormalizer")
+    roi = detector.process(image)
 
-normalized_roi = normalizer.process(roi)
+    if roi is None:
+        print("No se detectó placa.")
+        continue
 
-print(f"ROI normalizada: {normalized_roi.shape}")
+    normalized_roi = normalizer.process(roi)
 
+    text = ocr.process(normalized_roi)
 
-print("Etapa 3: TesseractOCR")
+    print(f"{ocr.__class__.__name__}: {repr(text)}")
 
-text = ocr.process(normalized_roi)
+    results.append((image_name, text))
 
-print(repr(text))
+    cv2.imwrite(roi_path, roi)
+    cv2.imwrite(normalized_path, normalized_roi)
+    cv2.imwrite(debug_path, normalized_roi)
 
-cv2.imshow("ROI", roi)
-cv2.imshow("ROI Normalizada", normalized_roi)
+print("\nResumen")
+print("-" * 40)
 
-cv2.imwrite(ROI_PATH, roi)
-cv2.imwrite(NORMALIZED_PATH, normalized_roi)
-
-if cv2.imwrite(DEBUG_PATH, normalized_roi):
-    print(f"ROI guardada en: {ROI_PATH}")
-    print(f"ROI normalizada guardada en: {NORMALIZED_PATH}")
-    print(f"Debug guardada en: {DEBUG_PATH}")
-else:
-    print("No se pudo guardar la imagen de debug.")
-
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
+for image_name, text in results:
+    print(f"{image_name:>3} -> {text}")
