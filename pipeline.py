@@ -1,6 +1,13 @@
 import cv2
+import pytesseract
 
 from ultralytics import YOLO
+
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 
 class LPRPipeline():
     """Coordina la ejecución secuencial de las etapas del pipeline de reconocimiento de placas, 
@@ -29,7 +36,16 @@ class PlateDetector(PipelineStage):
     """Localiza la placa y obtiene la región de interés (ROI)."""
     
     def __init__(self):
-        self.model = YOLO("models/plate_detector.pt")
+        model_path = os.getenv("YOLO_MODEL")
+
+        if not model_path:
+            raise ValueError("La variable YOLO_MODEL no está definida.")
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"No se encontró el modelo YOLO: {model_path}"
+            )
+        self.model = YOLO(model_path)
 
     def process(self, image):
         """Ejecuta la detección completa de la placa."""
@@ -117,10 +133,36 @@ class ROINormalizer(PipelineStage):
         return image
 
 class TesseractOCR(PipelineStage):
-    """Reconoce el texto."""
+    """Reconoce el texto de la patente mediante Tesseract."""
+
+    def __init__(self):
+        tesseract_cmd = os.getenv("TESSERACT_CMD")
+
+        if not tesseract_cmd:
+            raise ValueError(
+                "La variable de entorno TESSERACT_CMD no está definida."
+            )
+
+        if not os.path.exists(tesseract_cmd):
+            raise FileNotFoundError(
+                f"No se encontró el ejecutable de Tesseract: {tesseract_cmd}"
+            )
+
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+               
+        self.config =(
+            "--oem 3 "
+            "--psm 7 "
+            "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        )
 
     def process(self, image):
-        pass
+        text = pytesseract.image_to_string(
+            image,
+            # config = self.config
+            lang='eng'
+        )
+        return text
 
 class PostProcessor(PipelineStage):
     """Corrige, valida y calcula el score final."""

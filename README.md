@@ -377,6 +377,22 @@ texto reconocido + score OCR
 
 Su única tarea es extraer el texto mediante Tesseract. No valida el formato ni corrige errores.
 
+Configuración inicial: 
+
+`--oem 3`
+Utiliza automáticamente el mejor motor OCR disponible (LSTM cuando está presente).
+Es la configuración recomendada en versiones actuales de Tesseract.
+
+`--psm 7`
+Le indica a Tesseract que la imagen contiene una única línea de texto.
+Una patente normalmente es exactamente eso, por lo que suele dar mejores resultados que otros modos.
+
+`tessedit_char_whitelist`
+Limita los caracteres posibles a:
+A-Z
+0-9
+Reduce errores como interpretar símbolos o letras que nunca aparecerán en una patente.
+
 #### `PostProcessor`
 
 Responsabilidad
@@ -455,6 +471,8 @@ main.py
 
 ## Autor
 
+Mariana Emilia Mazzoccoli (2026)
+
 # Apendice: El motor OCR (Tesseract OCR)
 Es un programa independiente que realiza el reconocimiento de texto.
 
@@ -483,7 +501,9 @@ Tesseract OCR
 "AB123CD"
 ```
 
-En Windows se instala mediante un instalador (.exe).
+En Windows se instala mediante un instalador (.exe):
+
+https://github.com/UB-Mannheim/tesseract/wiki
 
 Instalar Tesseract OCR.
 
