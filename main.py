@@ -1,91 +1,32 @@
 """Punto de entrada de la aplicación. Coordina la ejecución."""
 import cv2
+import pandas as pd
 
 from pathlib import Path
 
 from pipeline import (
-    # LPRPipeline,
     PlateDetector,
     ROINormalizer,
-    # TesseractOCR,
     EasyOCR,
-    # PostProcessor
 )
 
-# pipeline = LPRPipeline(
-#     [
-#         PlateDetector(),
-#         ROINormalizer(),
-#         TesseractOCR(),
-#         PostProcessor(),
-#     ]
-# )
-
-
+GROUND_TRUTH_FILE = Path("data/ground_truth.csv")
 DATASET_PATH = Path("imgs/originales")
-
-# IMAGE_NAME = "001"
-# EXPERIMENT = "easyocr"
-
-# ROI_PATH = f"imgs/roi/{IMAGE_NAME}_{EXPERIMENT}.png"
-# NORMALIZED_PATH = f"imgs/roi_normalizadas/{IMAGE_NAME}_{EXPERIMENT}.png"
-# DEBUG_PATH = f"imgs/debug/{IMAGE_NAME}_{EXPERIMENT}.png"
-
-# image = cv2.imread(f"imgs/originales/{IMAGE_NAME}.png")
-
-# detector = PlateDetector()
-# normalizer = ROINormalizer()
-
-# # ocr = TesseractOCR()
-# ocr = EasyOCR()
-
-# # postprocessor = PostProcessor()
-
-# print("Etapa 1: PlateDetector")
-
-# roi = detector.process(image)
-
-# if roi is None:
-#     print("No se detectó placa")
-#     raise SystemExit(1)
-
-# # print(f"ROI detectada: {roi.shape}")
-
-
-# print("Etapa 2: ROINormalizer")
-
-# normalized_roi = normalizer.process(roi)
-
-# print(f"ROI normalizada: {normalized_roi.shape}")
-
-
-# print(f"Etapa 3: {ocr.__class__.__name__}")
-
-# text = ocr.process(normalized_roi)
-
-# print(f"Texto reconocido: {repr(text)}")
-
-# print("Guardando imagenes...")
-
-# roi_saved = cv2.imwrite(ROI_PATH, roi)
-# normalized_saved = cv2.imwrite(NORMALIZED_PATH, normalized_roi)
-# debug_saved = cv2.imwrite(DEBUG_PATH, normalized_roi)
-
-# print(f"ROI guardada: {roi_saved} -> {ROI_PATH}")
-# print(f"ROI normalizada guardada: {normalized_saved} -> {NORMALIZED_PATH}")
-# print(f"Debug guardada: {debug_saved} -> {DEBUG_PATH}")
-
-
-# # cv2.waitKey(0)
-# # cv2.destroyAllWindows()
 
 detector = PlateDetector()
 normalizer = ROINormalizer()
 ocr = EasyOCR()
 
+ground_truth = pd.read_csv(GROUND_TRUTH_FILE)
+
+labels = {
+    row["archivo"]: row["patente"].upper()
+    for _, row in ground_truth.iterrows()
+}
+
 results = []
 
-for image_path in sorted(DATASET_PATH.glob("*.png"))[:10]:
+for image_path in sorted(DATASET_PATH.glob("*.png")):
 
     image_name = image_path.stem
     
@@ -99,26 +40,89 @@ for image_path in sorted(DATASET_PATH.glob("*.png"))[:10]:
 
     image = cv2.imread(str(image_path))
 
+    print("\nEtapa 1: PlateDetector")
     roi = detector.process(image)
 
     if roi is None:
         print("No se detectó placa.")
+
+        results.append(
+            {
+                "image": image_path.name,
+                "ground_truth": labels.get(image_path.name, ""),
+                "prediction": "",
+                "correct": False,
+            }
+        )
         continue
-
+    
+    print("\nEtapa 2: ROINormalizer")
     normalized_roi = normalizer.process(roi)
-
+    
+    print(f"\nEtapa 3: {ocr.__class__.__name__}")
     text = ocr.process(normalized_roi)
 
     print(f"{ocr.__class__.__name__}: {repr(text)}")
 
-    results.append((image_name, text))
+    expected = labels.get(image_path.name, "")
+
+    prediction = text.upper()
+
+    is_correct = prediction == expected
+
+    results.append(
+        {
+            "image": image_path.name,
+            "ground_truth": expected,
+            "prediction": prediction,
+            "correct": is_correct,
+        }
+    )
 
     cv2.imwrite(roi_path, roi)
     cv2.imwrite(normalized_path, normalized_roi)
     cv2.imwrite(debug_path, normalized_roi)
 
 print("\nResumen")
-print("-" * 40)
+print("-" * 70)
 
-for image_name, text in results:
-    print(f"{image_name:>3} -> {text}")
+correct_predictions = 0
+
+for result in results:
+
+    status = "OK" if result["correct"] else "FAIL"
+
+    if result["correct"]:
+        correct_predictions += 1
+
+    print(
+        f"{result['image']:10}"
+        f"GT={result['ground_truth']:8}"
+        f"PRED={result['prediction']:12}"
+        f"{status}"
+    )
+
+accuracy = (
+    correct_predictions / len(results) * 100
+    if results
+    else 0
+)
+
+print("-" * 70)
+print(f"Imágenes procesadas : {len(results)}")
+print(f"Aciertos exactos    : {correct_predictions}")
+print(f"Accuracy            : {accuracy:.2f}%")
+
+results_df = pd.DataFrame(results)
+
+OUTPUT_DIR = Path("data")
+OUTPUT_FILE = OUTPUT_DIR / "predictions.csv"
+
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+results_df.to_csv(
+    OUTPUT_FILE,
+    index=False,
+)
+
+print(f"Resultados guardados en: {OUTPUT_FILE}")

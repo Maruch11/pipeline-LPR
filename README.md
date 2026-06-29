@@ -392,6 +392,7 @@ Limita los caracteres posibles a:
 A-Z
 0-9
 Reduce errores como interpretar símbolos o letras que nunca aparecerán en una patente.
+### EasyOCR
 
 #### `PostProcessor`
 

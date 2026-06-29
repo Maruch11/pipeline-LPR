@@ -5,3 +5,4 @@ ultralytics
 pytesseract
 torchvision
 easyocr
+pandas

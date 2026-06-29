@@ -46,6 +46,8 @@ data/
 # Docs
 backlog.md
 revision.md
+main_pipeline.py
+primer_evaluacion.md
 
 # MOdelos
 models/
